@@ -2,144 +2,100 @@ import processing.sound.*;
 import processing.io.*;
 MPR121 touch; // define MPR121 I2C capacitive touch sensor
 
-Shape hex;
-Shape circle;
-Shape triangle;
-Shape square;
-Shape rectangle;
-
+// Create 5 Sine wave oscillators (1 for each electrode that acts as a separate key)
 SinOsc sinOsc[] = new SinOsc[5];
 SqrOsc sqrOsc[] = new SqrOsc[5];
 TriOsc triOsc[] = new TriOsc[5];
 
+// This is used for switching between oscillators: 0 - Sine, 1 - Square, 2 - Triangle oscillator
+int currentMode;
+
+// volume control
 float[] volumeLevels = {0.5, 0.75, 1.0}; // possible volume levels to switch between
 int currentVolumeIndex = 0;
 float currentVolume = 1.0;
 
-float pitchDelta = 0;
+// pitch control
+float pitchDelta = 0; 
 float frequencyMultiplier = 1.0;
 
-int currentMode; // Used for switching between oscillators: 0 - Sine, 1 - Square, 2 - Triangle oscillator
+// Plant light animation
+float cube = 2.8; 
+float speed = 1;
 
-void setup() {
-  size(500, 300);
-  // Change the color mode of the sketch to HSB
-  colorMode(HSB, 360, 100, 100);
-  noStroke();
-  
-  hex = new Shape(50, random(100, height - 100), 100, radians(random(360), "hexagon");
-  circle = new Shape(150, random(100, height - 100), 100, radians(random(360), "circle");
-  triangle = new Shape(250, random(100, height - 100), 100, radians(random(360), "triangle");
-  rectangle = new Shape(350, random(100, height - 100), 50, radians(random(360), "rectangle");
-  square = new Shape(450, random(100, height - 100), 100, radians(random(360), "square");
-
+void setup(){
+  size(500,500); 
   touch = new MPR121("i2c-1", 0x5a); // Read capacitive touch from MPR121 using its default address
+
+// initialize arrays of oscillators
   for (int i=0; i < 5; i++) {
     sinOsc[i] = new SinOsc(this);
     sqrOsc[i] = new SqrOsc(this);
     triOsc[i] = new TriOsc(this);
   }
 
-  currentVolume = volumeLevels[currentVolumeIndex];
   currentMode = 0; // set the default oscillator to Sine
+  //currentMode = 1; // uncomment this to set the default oscillator to Square
+  //currentMode = 2; // uncomment this to set the default oscillator to Triangle
 }
 
-void draw() {
-  background(100); 
-
+void draw(){
+  
   touch.update(); // get readings from the MPR121 I2C sensor
-
-  hex.setActiveState(false);
-  circle.setActiveState(false);
-  triangle.setActiveState(false);
-  square.setActiveState(false);
-  rectangle.setActiveState(false);
-
-  if (touch.touched(10)) {
-    currentVolumeIndex++;
-    if (currentVolumeIndex > volumeLevels.length - 1) {
-      currentVolumeIndex = 0;
-    }
-    currentVolume = volumeLevels[currentVolumeIndex];
-  }
-
-  if (!touch.touched(9)) {
+  
+  //float frequency0 = map(touch.analogRead(0), 0, 200, 100.0, 1000.0);
+  //float frequency1 = map(touch.analogRead(1), 0, 200, 100.0, 1000.0);
+  
+  // When pin 9 is not touched, don't modify the pitch
+  if (!touch.touched(0)) {
     pitchDelta = 0;
   }
 
-  if (touch.touched(9)) {
-    pitchDelta = touch.analogRead(9) / 2;
+  // When pin 9 is touched, modify the pitch in proportion to analogRead() value
+  if (touch.touched(0)) {
+    pitchDelta = touch.analogRead(0) * 20;
   }
-
-  if (!touch.touched(7)) {
-    currentVolume = volumeLevels[currentVolumeIndex];
-  }
-
-  if (touch.touched(7)) {
-    currentVolume = touch.analogRead(7) / 200.0;
-  }
-
-  if (!touch.touched(11)) {
+  
+  // Don't modify frequency multiplier if pin 11 is not touched
+  if (!touch.touched(1)) {
     frequencyMultiplier = 1.0;
   }
-
-  if (touch.touched(11)) {
-    frequencyMultiplier = 3.0;
+  
+  // Increase frequency multiplier when pin 11 is touched
+  if (touch.touched(1)) {
+    frequencyMultiplier = 3.0; // Feel free to change this value
   }
-
-  if (touch.touched(8)) {
-    currentMode = 0;
-  }
-
-  if (touch.touched(5)) {
-    currentMode = 1;
-  }
-
-  if (touch.touched(6)) {
-    currentMode = 2;
-  }
-
+  
   for (int i=0; i < 5; i++) {
     if (!touch.touched(i)) {
       stopNote(i);
     }
     if (touch.touched(i)) {
       if (i == 1) { 
-        hex.vibrate(440);
-        playNote(i, 440);
+        playNote(i, touch.analogRead(0));
       } 
 
       if (i == 3) { 
         // Update the circle state
-        circle.vibrate(700);
         playNote(i, 700);
       }
 
       if (i == 4) { 
-        triangle.vibrate(340);
         playNote(i, 340);
       }
 
       if (i == 2) { 
-        square.vibrate(490);
         playNote(i, 490);
       }
 
       if (i == 0) { 
-        rectangle.vibrate(600);
         playNote(i, 600);
       }
     }
   }
-
-  hex.display();
-  circle.display();
-  triangle.display();
-  square.display();
-  rectangle.display();
+  
 }
-
-// Play a note, using the oscillator that is currently active, with volume level established by the volume toggle switch
+   
 void playNote(int index, int frequency) {
   switch(currentMode) {
   case 0: 
@@ -152,10 +108,46 @@ void playNote(int index, int frequency) {
     triOsc[index].play(frequency * frequencyMultiplier + pitchDelta, currentVolume);
     break;
   }
-}
+}  
 
+// Stop playing the note
 void stopNote(int index) {
   sinOsc[index].stop();
   sqrOsc[index].stop();
   triOsc[index].stop();
+} //<>//
+
+void plantLight(){ 
+  noStroke();
+   //red cube row 1
+  for (float x = 0; x < 500; x+=cube*2){
+     for(float y = 0; y < 500; y+=cube*2){
+      fill(255,0,0);
+      rect(x,y,cube,cube);
+     }
+  }
+ 
+ //red cube row 2
+   for (float x = cube; x < width; x+=cube*2){
+     for(float y = cube; y < height; y+=cube*2){
+      fill(255,0,0);
+      rect(x,y,cube,cube);
+     }
+  }
+ 
+ //blue cube row 1
+    for (float x = cube; x < width; x+=cube*2){
+     for(float y = 0; y < height; y+=cube*2){
+      fill(0,0,255);
+      rect(x,y,cube,cube);
+     }
+  }
+  
+  //blue cube row 2
+    for (float x = 0; x < width; x+=cube*2){
+     for (float y = cube; y < height; y+=cube*2){
+      fill(0,0,255);
+      rect(x,y,cube,cube);
+     }
+  }
 }
